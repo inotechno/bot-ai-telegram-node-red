@@ -1,0 +1,1785 @@
+[
+  {
+    "id": "ai_integrator_v31",
+    "type": "tab",
+    "label": "AI Integrator",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "4c98e6bb25a2479e",
+    "type": "telegram bot",
+    "botname": "Bot Integrator",
+    "usernames": "",
+    "chatids": "",
+    "baseapiurl": "",
+    "testenvironment": false,
+    "updatemode": "polling",
+    "pollinterval": "500",
+    "usesocks": false,
+    "sockshost": "",
+    "socksport": "6667",
+    "socksusername": "anonymous",
+    "sockspassword": "",
+    "bothost": "",
+    "botpath": "",
+    "localbothost": "",
+    "localbotport": "8443",
+    "publicbotport": "8443",
+    "privatekey": "",
+    "certificate": "",
+    "useselfsignedcertificate": false,
+    "sslterminated": false,
+    "verboselogging": false,
+    "credentials": {
+      "token": "{env.get(\"TELEGRAM_BOT_TOKEN\")}"
+    }
+  },
+  {
+    "id": "07c7a35f3ba44dc2",
+    "type": "postgreSQLConfig",
+    "name": "AI Integrator PostgreSQL",
+    "host": "PGHOST",
+    "hostFieldType": "env",
+    "port": "PGPORT",
+    "portFieldType": "env",
+    "database": "PGDATABASE",
+    "databaseFieldType": "env",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "AI Integrator V3.1",
+    "applicationNameType": "str",
+    "max": "10",
+    "maxFieldType": "num",
+    "idle": "1000",
+    "idleFieldType": "num",
+    "connectionTimeout": "10000",
+    "connectionTimeoutFieldType": "num",
+    "userFieldType": "env",
+    "userEnv": "PGUSER",
+    "passwordFieldType": "env",
+    "passwordEnv": "PGPASSWORD"
+  },
+  {
+    "id": "a57794e5e7c24ea1",
+    "type": "global-config",
+    "env": [],
+    "modules": {
+      "node-red-contrib-telegrambot": "19.0.3",
+      "node-red-contrib-postgresql": "0.16.2"
+    }
+  },
+  {
+    "id": "7131f139f5564200",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "AI Integrator V3.2 • Multi-Provider AI + Automatic Memory",
+    "info": "Semua chat diarsipkan ke chat_messages. AI Router menggunakan multi-provider fallback: Groq → Gemini → OpenRouter (sesuai AI_PROVIDER_ORDER). Memory Processor berjalan batch, bukan setiap pesan.",
+    "x": 100,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "f943192e757440cc",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Initialize V3.1 Memory Schema",
+    "func": "msg.query = `\nCREATE TABLE IF NOT EXISTS ai_memory_state (\n  chat_id BIGINT PRIMARY KEY,\n  last_processed_message_id BIGINT NOT NULL DEFAULT 0,\n  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n);\nCREATE INDEX IF NOT EXISTS ai_memories_chat_type_idx\n  ON ai_memories(chat_id, memory_type);\nCREATE INDEX IF NOT EXISTS ai_memories_chat_updated_idx\n  ON ai_memories(chat_id, updated_at DESC);\nCREATE INDEX IF NOT EXISTS chat_messages_chat_message_idx\n  ON chat_messages(chat_id, message_id);\nALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS chunk_index INTEGER;\nCREATE UNIQUE INDEX IF NOT EXISTS ai_memories_dedupe_idx\n  ON ai_memories(chat_id, memory_type, title);\n`; msg.params=[]; return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 1640,
+    "wires": [
+      [
+        "d146c6fc209f47a3"
+      ]
+    ]
+  },
+  {
+    "id": "d146c6fc209f47a3",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Create Memory State / Indexes",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 620,
+    "y": 1640,
+    "wires": [
+      [
+        "de37f435318649ad"
+      ]
+    ]
+  },
+  {
+    "id": "de37f435318649ad",
+    "type": "debug",
+    "z": "ai_integrator_v31",
+    "name": "V3.1 DB Ready",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 880,
+    "y": 1640,
+    "wires": []
+  },
+  {
+    "id": "874eef3f352e4fee",
+    "type": "inject",
+    "z": "ai_integrator_v31",
+    "name": "Initialize Database",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 1640,
+    "wires": [
+      [
+        "f943192e757440cc"
+      ]
+    ]
+  },
+  {
+    "id": "3eb57b878af841e4",
+    "type": "telegram receiver",
+    "z": "ai_integrator_v31",
+    "name": "Telegram Receiver",
+    "bot": "4c98e6bb25a2479e",
+    "saveDataDir": "",
+    "filterCommands": false,
+    "x": 100,
+    "y": 140,
+    "wires": [
+      [
+        "2ff9c0425c834f87"
+      ]
+    ]
+  },
+  {
+    "id": "2ff9c0425c834f87",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Normalize Telegram Message",
+    "func": "const o=msg.originalMessage||{};\nconst from=o.from||{};\nconst chat=o.chat||{};\nlet text=typeof o.text==='string'?o.text:'';\nif(!text&&typeof o.caption==='string'&&/^\\/[A-Za-z0-9_]+/.test(o.caption))text=o.caption;\nif(!text&&typeof msg.payload==='string')text=msg.payload;\nmsg.chatId=Number(chat.id||msg.chatId||0);\nmsg.senderId=Number(from.id||0)||null;\nmsg.senderName=[from.first_name,from.last_name].filter(Boolean).join(' ')||from.username||'Unknown';\nmsg.username=from.username||null;\nmsg.messageId=Number(o.message_id||0);\nmsg.messageDate=o.date?new Date(Number(o.date)*1000).toISOString():new Date().toISOString();\nmsg.messageType=o.document?'document':o.photo?'photo':o.sticker?'sticker':o.voice?'voice':o.video?'video':'text';\nmsg.text=text.trim();\nmsg.replyToMessageId=Number(o.reply_to_message?.message_id||0)||null;\nmsg.isCommand=/^\\/[A-Za-z0-9_]+/.test(msg.text);\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 140,
+    "wires": [
+      [
+        "bcfa288b49304c29"
+      ]
+    ]
+  },
+  {
+    "id": "bcfa288b49304c29",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Archive Raw Chat",
+    "func": "const uid=Number(msg.senderId||0)||Number(msg.chatId||0);\nconst db=Object.assign({},msg);\ndb.query=`WITH u AS (\n INSERT INTO chat_users (telegram_user_id, first_name, last_name, username, display_name, updated_at)\n VALUES ($1,$2,$3,$4,$5,NOW())\n ON CONFLICT (telegram_user_id) DO UPDATE SET\n  first_name=EXCLUDED.first_name,last_name=EXCLUDED.last_name,username=EXCLUDED.username,\n  display_name=EXCLUDED.display_name,updated_at=NOW()\n RETURNING telegram_user_id\n), m AS (\n INSERT INTO chat_messages\n (chat_id,message_id,sender_id,sender_name,username,message_date,message_type,text,reply_to_message_id,raw_json,created_at)\n VALUES ($6,$7,$1,$5,$4,$8,$9,$10,$11,$12::jsonb,NOW())\n ON CONFLICT (chat_id,message_id) DO UPDATE SET text=EXCLUDED.text,raw_json=EXCLUDED.raw_json\n RETURNING id\n) SELECT (SELECT count(*) FROM u) AS users,(SELECT count(*) FROM m) AS messages`;\ndb.params=[\n uid,\n msg.originalMessage?.from?.first_name||null,\n msg.originalMessage?.from?.last_name||null,\n msg.username,\n msg.senderName,\n msg.chatId,\n msg.messageId,\n msg.messageDate,\n msg.messageType,\n msg.text||null,\n msg.replyToMessageId||null,\n JSON.stringify(msg.originalMessage||{})\n];\nreturn [msg,db];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 140,
+    "wires": [
+      [
+        "c625e4cee0a0479f"
+      ],
+      [
+        "d629a90ad12d4e80"
+      ]
+    ]
+  },
+  {
+    "id": "c625e4cee0a0479f",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Route Command / Chat",
+    "func": "const t=String(msg.text||'');\nconst m=t.match(/^\\/(\\w+)(?:@\\w+)?(?:\\s+([\\s\\S]+))?$/);\nmsg.command=m?m[1].toLowerCase():'';\nmsg.commandArgs=(m?.[2]||'').trim();\nif(msg.isCommand) return [msg,null,null];\nreturn [null,msg,msg];",
+    "outputs": 3,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 140,
+    "wires": [
+      [
+        "ef167094798848c7"
+      ],
+      [
+        "d5d357a652c1458f"
+      ],
+      [
+        "bbc51df390d44b73"
+      ]
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e80",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Save Chat Archive",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 620,
+    "y": 280,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "d5d357a652c1458f",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Automatic Memory Batch Gate",
+    "func": "if(!msg.chatId || !msg.messageId || !msg.text) return null;\nlet state=flow.get('memoryGate')||{};\nconst key=String(msg.chatId);\nstate[key]=(state[key]||0)+1;\nconst batchSize=Math.max(3,Number(env.get('AI_MEMORY_BATCH_SIZE')||8));\nlet trigger=state[key]>=batchSize;\nif(trigger) state[key]=0;\nflow.set('memoryGate',state);\nif(!trigger) return null;\nmsg.memoryReason='batch';\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 1240,
+    "wires": [
+      [
+        "45ba09ec55f1467b"
+      ]
+    ]
+  },
+  {
+    "id": "b798d1e77bff4748",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Find Pending Memory Chats",
+    "func": "const ids=Object.keys(flow.get('memoryGate')||{}).filter(k=>Number(k));\nif(!ids.length) return null;\nreturn ids.map(id=>({chatId:Number(id),memoryReason:'periodic'}));",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 1340,
+    "wires": [
+      [
+        "45ba09ec55f1467b"
+      ]
+    ]
+  },
+  {
+    "id": "d3410fae70f847c1",
+    "type": "inject",
+    "z": "ai_integrator_v31",
+    "name": "Memory Processor Every 5 Minutes",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "300",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 100,
+    "y": 1340,
+    "wires": [
+      [
+        "b798d1e77bff4748"
+      ]
+    ]
+  },
+  {
+    "id": "45ba09ec55f1467b",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Prepare Memory Batch Query",
+    "func": "const n=Math.max(10,Number(env.get('AI_MEMORY_BATCH_MESSAGES')||30));\nmsg.query=`\nSELECT cm.chat_id, cm.message_id, cm.sender_id, cm.sender_name, cm.username,\n       cm.message_date, cm.text, cm.reply_to_message_id\nFROM chat_messages cm\nWHERE cm.chat_id=$1\n  AND cm.message_id > COALESCE(\n    (SELECT last_processed_message_id FROM ai_memory_state WHERE chat_id=$1),0)\n  AND cm.text IS NOT NULL\n  AND length(trim(cm.text)) > 0\nORDER BY cm.message_id ASC\nLIMIT $2;`;\nmsg.params=[msg.chatId,n];\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 1440,
+    "wires": [
+      [
+        "69e85709612e42a7"
+      ]
+    ]
+  },
+  {
+    "id": "69e85709612e42a7",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Build Memory Extraction Context",
+    "func": "const rows=Array.isArray(msg.payload)?msg.payload:(msg.payload?.rows||[]);\nif(!rows.length) return null;\nmsg.memoryRows=rows;\nmsg.memoryLastMessageId=Number(rows[rows.length-1].message_id||0);\nconst maxChars=Number(env.get('AI_MEMORY_CONTEXT_CHARS')||18000);\nlet total=0, lines=[];\nfor(const r of rows){\n const line=`[message_id=${r.message_id}] [${r.message_date}] ${r.sender_name||r.username||r.sender_id||'Unknown'}: ${String(r.text||'')}`;\n if(total+line.length>maxChars) break;\n lines.push(line); total+=line.length;\n}\nmsg.memoryPromptContext=lines.join('\\n');\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1140,
+    "y": 1440,
+    "wires": [
+      [
+        "cbe2556f4bf3489a"
+      ]
+    ]
+  },
+  {
+    "id": "cbe2556f4bf3489a",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Prepare AI Memory Request",
+    "func": "const system=`Anda adalah Memory Extractor untuk AI Integrator.\nBaca batch percakapan tim dan hanya simpan informasi yang layak menjadi memory jangka panjang.\nJANGAN menyimpan sapaan, \"oke\", \"siap\", basa-basi, pertanyaan biasa, percakapan sementara, atau noise.\nSimpan solusi teknis, bug/fix, keputusan, instruksi, konfigurasi, event, achievement, fakta penting, social context, dan kejadian lucu yang memang punya nilai konteks.\nKategori valid: technical, bug, fix, decision, instruction, configuration, event, achievement, important, social, funny, quote, incident.\nJika tidak ada memory yang layak, kembalikan memories=[].\nJangan mengarang fakta. Maksimal 5 memory.\nKeluarkan HANYA JSON valid:\n{\"memories\":[{\"memory_type\":\"technical\",\"title\":\"...\",\"content\":\"...\",\"importance\":4,\"source_message_id\":123,\"sender_id\":456,\"sender_name\":\"Nama\"}]}`;\nmsg.aiAttempt=0;\nmsg.aiErrors=[];\nconst body={model:null,temperature:0.1,messages:[\n {role:'system',content:system},\n {role:'user',content:`BATCH CHAT:\\n${msg.memoryPromptContext}`}\n]};\nmsg.requestBody=body;\nmsg.payload=body;\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1400,
+    "y": 1440,
+    "wires": [
+      [
+        "a853210f4cee4be8"
+      ]
+    ]
+  },
+  {
+    "id": "35f1071547c24eab",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "AI HTTP • Memory Extraction",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1920,
+    "y": 1440,
+    "wires": [
+      [
+        "65fcd3ec93ee41c8"
+      ]
+    ]
+  },
+  {
+    "id": "ff8ca9578cfa4f7b",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Parse Memory JSON",
+    "func": "const status=Number(msg.statusCode||200);\nif(status>=400){node.error(`Memory extraction HTTP ${status}`,msg);return null;}\nlet s=String(msg.payload?.choices?.[0]?.message?.content||'').trim();\ns=s.replace(/^```(?:json)?\\s*/i,'').replace(/\\s*```$/,'').trim();\nlet data;\ntry{data=JSON.parse(s);}catch(e){node.error('Memory Extractor menghasilkan JSON tidak valid',msg);return null;}\nmsg.extractedMemories=Array.isArray(data.memories)?data.memories.slice(0,5):[];\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2440,
+    "y": 1440,
+    "wires": [
+      [
+        "4d05df3f03124ff7"
+      ]
+    ]
+  },
+  {
+    "id": "4d05df3f03124ff7",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Prepare Memory Upsert",
+    "func": "const memories=(msg.extractedMemories||[]).map(m=>({\n chat_id:Number(msg.chatId),\n memory_type:String(m.memory_type||'important').slice(0,40),\n title:String(m.title||'').trim().slice(0,250),\n content:String(m.content||'').trim(),\n importance:Math.min(5,Math.max(1,Number(m.importance)||3)),\n source_message_id:Number(m.source_message_id||msg.memoryLastMessageId||0)||null,\n sender_id:Number(m.sender_id||0)||null,\n sender_name:String(m.sender_name||'').trim().slice(0,250)||null\n})).filter(m=>m.title&&m.content);\nmsg.validMemories=memories;\nmsg.query=`\nINSERT INTO ai_memories\n(chat_id,memory_type,title,content,importance,source_message_id,sender_id,sender_name,created_at,updated_at)\nSELECT x.chat_id,x.memory_type,x.title,x.content,x.importance,x.source_message_id,x.sender_id,x.sender_name,NOW(),NOW()\nFROM jsonb_to_recordset($1::jsonb) AS x(\n chat_id bigint,memory_type text,title text,content text,importance integer,\n source_message_id bigint,sender_id bigint,sender_name text\n)\nON CONFLICT (chat_id,memory_type,title)\nDO UPDATE SET\n content=EXCLUDED.content,\n importance=GREATEST(ai_memories.importance,EXCLUDED.importance),\n source_message_id=EXCLUDED.source_message_id,\n sender_id=EXCLUDED.sender_id,\n sender_name=EXCLUDED.sender_name,\n updated_at=NOW();`;\nmsg.params=[JSON.stringify(memories)];\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2700,
+    "y": 1440,
+    "wires": [
+      [
+        "f14ef3c457924df6"
+      ]
+    ]
+  },
+  {
+    "id": "f14ef3c457924df6",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Save Automatic AI Memories",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 2960,
+    "y": 1440,
+    "wires": [
+      [
+        "7d847f2e486f430b"
+      ]
+    ]
+  },
+  {
+    "id": "7d847f2e486f430b",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Advance Memory Checkpoint",
+    "func": "msg.query=`\nINSERT INTO ai_memory_state(chat_id,last_processed_message_id,updated_at)\nVALUES($1,$2,NOW())\nON CONFLICT(chat_id) DO UPDATE SET\n last_processed_message_id=GREATEST(ai_memory_state.last_processed_message_id,EXCLUDED.last_processed_message_id),\n updated_at=NOW();`;\nmsg.params=[msg.chatId,Number(msg.memoryLastMessageId||0)];\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 3220,
+    "y": 1440,
+    "wires": [
+      [
+        "a1e7def900524ba1"
+      ]
+    ]
+  },
+  {
+    "id": "a1e7def900524ba1",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Update Memory Checkpoint",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 3480,
+    "y": 1440,
+    "wires": [
+      [
+        "57b1016c25e64858"
+      ]
+    ]
+  },
+  {
+    "id": "57b1016c25e64858",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Reset Memory Gate",
+    "func": "let s=flow.get('memoryGate')||{};s[String(msg.chatId)]=0;flow.set('memoryGate',s);return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 3740,
+    "y": 1440,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ef167094798848c7",
+    "type": "switch",
+    "z": "ai_integrator_v31",
+    "name": "Command Router",
+    "property": "command",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "eq",
+        "v": "ask",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "help",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "remember",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "memory",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "forget",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "clear",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "sources",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "learn",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "sticker",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 10,
+    "x": 1160,
+    "y": 540,
+    "wires": [
+      [
+        "2c08f9c1fb5c4d52"
+      ],
+      [
+        "f14f1a3b4bd344cc"
+      ],
+      [
+        "f12dcf6206e8479f"
+      ],
+      [
+        "1e3d04dadea74977"
+      ],
+      [
+        "2696da4328de4a7b"
+      ],
+      [
+        "b8744b0a924148b0"
+      ],
+      [
+        "a8daa2ed77f04ab5"
+      ],
+      [
+        "d629a90ad12d4e66"
+      ],
+      [
+        "571c4e2a9f000001"
+      ],
+      [
+        "1bf15d97822547f7"
+      ]
+    ]
+  },
+  {
+    "id": "f14f1a3b4bd344cc",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Help",
+    "func": "msg.payload={chatId:msg.chatId,type:'message',content:\n`<b>🤖 AI Integrator</b>\n\n<b>AI</b>\n/ask pertanyaan\nReply pesan AI untuk melanjutkan\n/clear — hapus konteks percakapan AI\n\n<b>Memory</b>\n/remember teks\nReply pesan + /remember\n/memory [kata kunci]\n/forget ID\n\n<b>Knowledge</b>\n/learn https://contoh.com — simpan halaman web\nKirim file (PDF/TXT) dgn caption /learn — simpan dokumen (juga dgn reply)\n/sources\n\n<b>Stiker</b>\n/sticker — foto → stiker (kirim foto dgn caption /sticker, atau reply foto dgn /sticker)\n\nSemua chat group diarsipkan. Memory AI juga dibuat otomatis dari batch percakapan yang relevan.`,options:{parse_mode:'HTML'}};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 240,
+    "wires": [
+      [
+        "a6952706b87e4517"
+      ]
+    ]
+  },
+  {
+    "id": "a6952706b87e4517",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Help",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 1720,
+    "y": 240,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "f12dcf6206e8479f",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Manual Remember",
+    "func": "const reply=msg.originalMessage?.reply_to_message;\nlet content=msg.commandArgs;\nif(!content&&reply) content=String(reply.text||'').trim();\nif(!content){msg.payload={chatId:msg.chatId,type:'message',content:'Gunakan <code>/remember teks</code> atau reply pesan lalu <code>/remember</code>.',options:{parse_mode:'HTML'}};return msg;}\nconst srcId=reply?.message_id||msg.messageId, src=reply?.from;\nmsg.query=`INSERT INTO ai_memories(chat_id,memory_type,title,content,importance,source_message_id,sender_id,sender_name,created_at,updated_at)\nVALUES($1,'important',$2,$3,4,$4,$5,$6,NOW(),NOW())\nON CONFLICT(chat_id,memory_type,title) DO UPDATE SET content=EXCLUDED.content,importance=GREATEST(ai_memories.importance,4),updated_at=NOW();`;\nmsg.params=[msg.chatId,content.slice(0,250),content,Number(srcId)||null,Number(src?.id)||null,[src?.first_name,src?.last_name].filter(Boolean).join(' ')||null];\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 340,
+    "wires": [
+      [
+        "4f6d0d475ef94656"
+      ]
+    ]
+  },
+  {
+    "id": "4f6d0d475ef94656",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Save Manual Memory",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1720,
+    "y": 340,
+    "wires": [
+      [
+        "a88e841e5f474017"
+      ]
+    ]
+  },
+  {
+    "id": "a88e841e5f474017",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Manual Memory Result",
+    "func": "msg.payload={chatId:msg.chatId,type:'message',content:'🧠 <b>Memory tersimpan.</b>',options:{parse_mode:'HTML'}};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 340,
+    "wires": [
+      [
+        "6ce1e3e44f174f55"
+      ]
+    ]
+  },
+  {
+    "id": "6ce1e3e44f174f55",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Memory Saved",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2240,
+    "y": 340,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "1e3d04dadea74977",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Search Memories",
+    "func": "const q=msg.commandArgs||'';\nmsg.query=`SELECT id,memory_type,title,content,importance,source_message_id,created_at\nFROM ai_memories\nWHERE chat_id=$1 AND ($2='' OR title ILIKE '%'||$2||'%' OR content ILIKE '%'||$2||'%' OR memory_type ILIKE '%'||$2||'%')\nORDER BY importance DESC,updated_at DESC LIMIT 15;`;\nmsg.params=[msg.chatId,q];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 440,
+    "wires": [
+      [
+        "aadba3f129984b25"
+      ]
+    ]
+  },
+  {
+    "id": "aadba3f129984b25",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Query Memories",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1720,
+    "y": 440,
+    "wires": [
+      [
+        "436ec8dabba84cb8"
+      ]
+    ]
+  },
+  {
+    "id": "436ec8dabba84cb8",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Format Memories",
+    "func": "const rows=Array.isArray(msg.payload)?msg.payload:(msg.payload?.rows||[]);\nconst esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nmsg.payload={chatId:msg.chatId,type:'message',content:rows.length?'<b>🧠 AI Memories</b>\\n\\n'+rows.map(r=>`<b>#${r.id} [${esc(r.memory_type)}]</b> ${esc(r.title)}\\n⭐ ${r.importance}/5\\n${esc(r.content)}`).join('\\n\\n'):'🧠 Belum ada memory yang cocok.',options:{parse_mode:'HTML'}};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 440,
+    "wires": [
+      [
+        "a720176d7aa54235"
+      ]
+    ]
+  },
+  {
+    "id": "a720176d7aa54235",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Memories",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2240,
+    "y": 440,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "2696da4328de4a7b",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Forget Memory",
+    "func": "const id=Number(msg.commandArgs);\nif(!id){msg.payload={chatId:msg.chatId,type:'message',content:'Gunakan <code>/forget ID</code>.',options:{parse_mode:'HTML'}};return msg;}\nmsg.query='DELETE FROM ai_memories WHERE id=$1 AND chat_id=$2 RETURNING id;';\nmsg.params=[id,msg.chatId];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 540,
+    "wires": [
+      [
+        "718ef7af220c44ea"
+      ]
+    ]
+  },
+  {
+    "id": "718ef7af220c44ea",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Delete Memory",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1720,
+    "y": 540,
+    "wires": [
+      [
+        "7466c8f4f3384da2"
+      ]
+    ]
+  },
+  {
+    "id": "7466c8f4f3384da2",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Format Forget",
+    "func": "const rows=Array.isArray(msg.payload)?msg.payload:(msg.payload?.rows||[]);\nmsg.payload={chatId:msg.chatId,type:'message',content:rows.length?'🗑️ Memory dihapus.':'Memory tidak ditemukan atau bukan milik chat ini.'};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 540,
+    "wires": [
+      [
+        "b969f82c9ce1483b"
+      ]
+    ]
+  },
+  {
+    "id": "b969f82c9ce1483b",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Forget Result",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2240,
+    "y": 540,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "b8744b0a924148b0",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Clear AI Conversation Context",
+    "func": "flow.set(`aiConversation_${msg.chatId}`,[]);\nmsg.query='DELETE FROM ai_conversations WHERE chat_id=$1;';\nmsg.params=[msg.chatId];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 640,
+    "wires": [
+      [
+        "8857a78e51f645cc"
+      ]
+    ]
+  },
+  {
+    "id": "8857a78e51f645cc",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Clear Conversation DB",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1720,
+    "y": 640,
+    "wires": [
+      [
+        "e6137ead94cd4f35"
+      ]
+    ]
+  },
+  {
+    "id": "e6137ead94cd4f35",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Clear Result",
+    "func": "msg.payload={chatId:msg.chatId,type:'message',content:'🧹 Konteks percakapan AI dihapus. Raw chat dan AI Memories tetap tersimpan.'};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 640,
+    "wires": [
+      [
+        "a20ec3871d2a4ca0"
+      ]
+    ]
+  },
+  {
+    "id": "a20ec3871d2a4ca0",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Clear Result",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2240,
+    "y": 640,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "a8daa2ed77f04ab5",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Knowledge Sources",
+    "func": "msg.query=`SELECT source_name,source_type,COUNT(*) AS chunks,MIN(page) AS first_page FROM knowledge_chunks GROUP BY source_name,source_type ORDER BY MAX(created_at) DESC LIMIT 30;`;msg.params=[];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 740,
+    "wires": [
+      [
+        "308a4e66183942e0"
+      ]
+    ]
+  },
+  {
+    "id": "308a4e66183942e0",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Query Knowledge Sources",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1720,
+    "y": 740,
+    "wires": [
+      [
+        "6f7bdc3423ff41e9"
+      ]
+    ]
+  },
+  {
+    "id": "6f7bdc3423ff41e9",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Format Knowledge Sources",
+    "func": "const rows=Array.isArray(msg.payload)?msg.payload:(msg.payload?.rows||[]);\nconst esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');\nmsg.payload={chatId:msg.chatId,type:'message',content:rows.length?'<b>📚 Knowledge Sources</b>\\n\\n'+rows.map((r,i)=>`${i+1}. <b>${esc(r.source_name)}</b> — ${r.source_type} — ${r.chunks} chunks`).join('\\n'):'📚 Knowledge Base masih kosong.',options:{parse_mode:'HTML'}};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 740,
+    "wires": [
+      [
+        "d3ad8b6bbc8342d3"
+      ]
+    ]
+  },
+  {
+    "id": "d3ad8b6bbc8342d3",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Sources",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2240,
+    "y": 740,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "2c08f9c1fb5c4d52",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Prepare Ask",
+    "func": "let q=msg.command==='ask'?msg.commandArgs:'';\nif(!q && msg.askText) q=String(msg.askText).trim();\nif(!q && msg.originalMessage?.reply_to_message?.from?.is_bot) q=String(msg.text||'').trim();\nif(!q){msg.payload={chatId:msg.chatId,type:'message',content:'Gunakan <code>/ask pertanyaan</code> atau reply pesan AI.',options:{parse_mode:'HTML'}};return null;}\nmsg.askText=q;\nconst STOP=new Set(['siapa','siapakah','apa','apakah','dimana','dimanakah','mana','kapan','kenapa','mengapa','bagaimana','gimana','berapa','saya','aku','kamu','anda','dia','kami','kita','mereka','untuk','dari','dengan','yang','yg','itu','ini','tersebut','adalah','ada','tidak','tdk','belum','bisa','boleh','tolong','mohon','jelaskan','sebutkan','berikan','buat','bikin','perkenalkan','soal','tentang','dong','kah','sudah','akan','sedang','lagi']);\nconst kws=[...new Set((q.toLowerCase().match(/[a-z0-9_]{3,}/g)||[]))].filter(w=>!STOP.has(w));\nconst patterns=(kws.length?kws:[q.toLowerCase()]).slice(0,8).map(w=>'%'+w+'%');\nmsg.query=`WITH mem AS (\n SELECT id::text source_id,'memory' source_type,title,content,importance::numeric/5 score\n FROM ai_memories WHERE chat_id=$1 AND (title ILIKE ANY($2::text[]) OR content ILIKE ANY($2::text[]))\n ORDER BY score DESC,updated_at DESC LIMIT 8\n), chats AS (\n SELECT message_id::text source_id,'chat' source_type,sender_name title,text content,similarity(text,$3) score\n FROM chat_messages WHERE chat_id=$1 AND text IS NOT NULL AND text ILIKE ANY($2::text[])\n ORDER BY score DESC,message_id DESC LIMIT 8\n), kb AS (\n SELECT id::text source_id,'knowledge' source_type,source_name title,content,\n GREATEST(ts_rank_cd(search_vector,plainto_tsquery('simple',$3)),similarity(content,$3)) score\n FROM knowledge_chunks\n WHERE search_vector @@ plainto_tsquery('simple',$3) OR content ILIKE ANY($2::text[]) OR source_name ILIKE ANY($2::text[])\n ORDER BY score DESC,id DESC LIMIT 8\n)\nSELECT * FROM mem UNION ALL SELECT * FROM chats UNION ALL SELECT * FROM kb ORDER BY score DESC LIMIT 20;`;\nmsg.params=[msg.chatId,patterns,q];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 140,
+    "wires": [
+      [
+        "98f0a02e00334706"
+      ]
+    ]
+  },
+  {
+    "id": "98f0a02e00334706",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Search Memory Chat Knowledge",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 1720,
+    "y": 140,
+    "wires": [
+      [
+        "728772b4caf34687"
+      ]
+    ]
+  },
+  {
+    "id": "728772b4caf34687",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Build AI Context",
+    "func": "const rows=Array.isArray(msg.payload)?msg.payload:(msg.payload?.rows||[]);\nmsg.context=rows.slice(0,Number(env.get('AI_CHAT_TOP_K')||12)).map(r=>`[${r.source_type}] ${r.title||''}\\n${r.content||''}`).join('\\n\\n---\\n\\n')||'Tidak ada konteks internal yang cocok.';\nmsg.aiHistory=(flow.get(`aiConversation_${msg.chatId}`)||[]).slice(-Number(env.get('AI_MEMORY_MESSAGES')||10));\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 140,
+    "wires": [
+      [
+        "9c4aab82c0cf4088"
+      ]
+    ]
+  },
+  {
+    "id": "9c4aab82c0cf4088",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Prepare AI Request",
+    "func": "msg.aiAttempt=0;\nmsg.aiErrors=[];\nconst body={model:null,temperature:Number(env.get('AI_TEMPERATURE')||0.6),messages:[\n {role:'system',content:`Kamu itu temen ngobrol yang jago teknis tapi tetep santai. Gaya bicara:\n- Santai kayak ngobrol sama temen dekat. Boleh pake 'gw', 'lu', 'bro', 'oke', 'sih', 'dong', 'banget'.\n- Singkat, padat, langsung ke inti. Jangan bertele-tele.\n- Kalo ditanya teknis, jawab jelas tapi tetep gaya anak muda.\n- Jangan bahasa kaku. Natural aja.\n- Kalo gatau, bilang 'gatau deh' atau 'blom nemu info' — jangan ngarang.\n- Pake konteks internal (memory, arsip chat, knowledge base) sebagai sumber utama fakta internal. Bedakan sumbernya. Jangan mengarang fakta internal.\n- Emoji boleh dikit biar hidup, tapi jangan lebay.\n- Kalo jawaban panjang, kasih ringkasan dulu baru detail.\n\nINTERNAL CONTEXT:\n${msg.context}`},\n ...(msg.aiHistory||[]),{role:'user',content:msg.askText}]};\nmsg.requestBody=body;\nmsg.payload=body;\nreturn msg",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2240,
+    "y": 140,
+    "wires": [
+      [
+        "e238db3cd8db4bd8"
+      ]
+    ]
+  },
+  {
+    "id": "8a1fcf82d7ea43d1",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "AI HTTP • Answer",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 2760,
+    "y": 140,
+    "wires": [
+      [
+        "f0b1730438b542c6"
+      ]
+    ]
+  },
+  {
+    "id": "145ad4811fb34221",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Parse AI Response",
+    "func": "if(msg.aiText && msg.aiText.startsWith('Semua AI provider gagal.')){\n // keep final router error\n}else{\n const status=Number(msg.statusCode||200);\n if(status>=400){msg.aiText=`AI provider HTTP ${status}: ${typeof msg.payload==='string'?msg.payload:JSON.stringify(msg.payload)}`;}\n else msg.aiText=String(msg.payload?.choices?.[0]?.message?.content||'Maaf, AI provider tidak memberikan jawaban.');\n}\nlet h=flow.get(`aiConversation_${msg.chatId}`)||[];\nh.push({role:'user',content:msg.askText},{role:'assistant',content:msg.aiText});\nh=h.slice(-(Number(env.get('AI_MEMORY_MESSAGES')||10)*2));flow.set(`aiConversation_${msg.chatId}`,h);\nmsg.query=`INSERT INTO ai_conversations(chat_id,role,content,created_at) VALUES($1,'user',$2,NOW()),($1,'assistant',$3,NOW());`;\nmsg.params=[msg.chatId,msg.askText,msg.aiText];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 3280,
+    "y": 140,
+    "wires": [
+      [
+        "d682ac6ede064c43"
+      ]
+    ]
+  },
+  {
+    "id": "d682ac6ede064c43",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Save AI Conversation",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 3540,
+    "y": 140,
+    "wires": [
+      [
+        "6175e6183e354fbd"
+      ]
+    ]
+  },
+  {
+    "id": "6175e6183e354fbd",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Format AI Telegram Response",
+    "func": "const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nlet t=String(msg.aiText||'');const code=[];\nt=t.replace(/```(?:[\\w+-]+)?\\n?([\\s\\S]*?)```/g,(_,c)=>{const i=code.length;code.push('<pre>'+esc(c.trim())+'</pre>');return `@@C${i}@@`;});\nt=esc(t).replace(/\\*\\*(.+?)\\*\\*/g,'<b>$1</b>').replace(/^#{1,6}\\s+(.+)$/gm,'<b>$1</b>');\nt=t.replace(/@@C(\\d+)@@/g,(_,i)=>code[Number(i)]||'');\nif(msg.aiProviderUsed){t+='\\n\\n<i>Provider: '+esc(String(msg.aiProviderUsed).replace(/[^\\w.-]/g,''))+'</i>';}\nmsg.payload={chatId:msg.chatId,type:'message',content:t.trim()||'Maaf, jawaban kosong.',options:{parse_mode:'HTML'}};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 3800,
+    "y": 140,
+    "wires": [
+      [
+        "3519ebc0aa434a9e"
+      ]
+    ]
+  },
+  {
+    "id": "3519ebc0aa434a9e",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send AI Answer",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 4060,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "bbc51df390d44b73",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Detect Reply To AI",
+    "func": "const r=msg.originalMessage?.reply_to_message;\nif(r?.from?.is_bot && r.text){msg.askText=String(msg.text||'').trim();return msg;}\nreturn null;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1160,
+    "y": 300,
+    "wires": [
+      [
+        "2c08f9c1fb5c4d52"
+      ]
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e66",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Learn URL",
+    "func": "const o=msg.originalMessage||{};\nconst doc=o.document||(o.reply_to_message&&o.reply_to_message.document);\nconst reply=(t)=>{msg.payload={chatId:msg.chatId,type:'message',content:t,options:{parse_mode:'HTML'}};return [msg,null,null];};\nconst u=String(msg.commandArgs||'').trim();\nif(/^https?:\\/\\//i.test(u)){\n msg.learnUrl=u;msg.sourceType='url';msg.method='GET';msg.url=u;\n msg.headers={'User-Agent':'AI-Integrator-KnowledgeBot/3.1','Accept':'text/html,application/xhtml+xml,text/plain'};\n return [null,msg,null];\n}\nif(/^file:/i.test(u)){\n return reply('Path lokal (<code>file://</code>) tidak bisa dibaca bot. Kirim saja filenya langsung dengan caption <code>/learn</code> (PDF/TXT).');\n}\nif(u){return reply('Gunakan <code>/learn https://contoh.com</code>, atau kirim file (PDF/TXT) dengan caption <code>/learn</code>.');}\nif(doc&&doc.file_id){\n const name=doc.file_name||'dokumen';\n const ext=(name.split('.').pop()||'').toLowerCase();\n const mime=String(doc.mime_type||'');\n const isPdf=mime==='application/pdf'||ext==='pdf';\n const textExt=['txt','md','markdown','csv','json','log','yaml','yml','xml','html','htm','ini','cfg','conf','srt','sql','js','ts','py','java','c','cpp','h','go','rs','css','sh','bat','ps1'];\n const isText=mime.indexOf('text/')===0||textExt.indexOf(ext)>=0;\n if(!isPdf&&!isText){return reply('Format <code>.'+ext+'</code> belum didukung. Kirim PDF atau file teks (txt, md, csv, json, log, dll).');}\n if(Number(doc.file_size||0)>15*1024*1024){return reply('Ukuran file maksimal 15 MB.');}\n const token=env.get('TELEGRAM_BOT_TOKEN');\n if(!token){return reply('TELEGRAM_BOT_TOKEN belum diatur di .env.');}\n msg.learnDocName=name;msg.learnDocKind=isPdf?'pdf':'text';msg.sourceType='document';\n msg.method='GET';msg.url='https://api.telegram.org/bot'+token+'/getFile?file_id='+encodeURIComponent(doc.file_id);\n return [null,null,msg];\n}\nreturn reply('Gunakan <code>/learn https://contoh.com</code>, atau kirim file (PDF/TXT) dengan caption <code>/learn</code>.');",
+    "outputs": 3,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 840,
+    "wires": [
+      [
+        "9af715746e964aa9"
+      ],
+      [
+        "b3fafce497524ea2"
+      ],
+      [
+        "d629a90ad12d4e70"
+      ]
+    ]
+  },
+  {
+    "id": "b3fafce497524ea2",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "Fetch Knowledge URL",
+    "method": "use",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1720,
+    "y": 840,
+    "wires": [
+      [
+        "15d30ecc8f5b4ac7"
+      ]
+    ]
+  },
+  {
+    "id": "15d30ecc8f5b4ac7",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Prepare URL Chunks",
+    "func": "const raw=String(msg.payload||'').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();\nif(!raw){node.error('Sumber tidak menghasilkan teks',msg);return null;}\nconst size=Math.max(1000,Number(env.get('AI_CHUNK_SIZE')||3600)), overlap=Math.max(0,Number(env.get('AI_CHUNK_OVERLAP')||450));\nlet chunks=[];for(let start=0;start<raw.length;){const end=Math.min(raw.length,start+size);chunks.push(raw.slice(start,end));if(end>=raw.length)break;start=Math.max(start+1,end-overlap);}\nconst st=msg.sourceType==='document'?'document':'url';\nmsg.documentName=msg.learnUrl||msg.learnDocName||'knowledge';\nmsg.sourceType=st;msg.chunkCount=chunks.length;\nmsg.query=`WITH del AS (\n DELETE FROM knowledge_chunks WHERE source_name=$1 AND source_type=$2\n), ins AS (\n INSERT INTO knowledge_chunks(source_name,source_type,page,chunk_index,content)\n SELECT $1,$2,NULL,(o.ord-1)::int,o.val\n FROM unnest($3::text[]) WITH ORDINALITY AS o(val,ord)\n RETURNING id\n) SELECT (SELECT count(*) FROM ins) AS inserted`;\nmsg.params=[msg.documentName,st,chunks];return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 840,
+    "wires": [
+      [
+        "67114bb480744136"
+      ]
+    ]
+  },
+  {
+    "id": "67114bb480744136",
+    "type": "postgresql",
+    "z": "ai_integrator_v31",
+    "name": "Save URL Knowledge",
+    "query": "",
+    "postgreSQLConfig": "07c7a35f3ba44dc2",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 2240,
+    "y": 840,
+    "wires": [
+      [
+        "3ef50dec01e9420d"
+      ]
+    ]
+  },
+  {
+    "id": "3ef50dec01e9420d",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "URL Learn Result",
+    "func": "const st=msg.sourceType||'url';\nconst esc=String(msg.documentName||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst rows=Array.isArray(msg.payload)?msg.payload:[];\nconst n=Number(rows[0]&&rows[0].inserted)||Number(msg.chunkCount||0);\nconst extra=n?(' ('+n+' bagian)'):'';\nmsg.payload={chatId:msg.chatId,type:'message',content:(st==='document'?`✅ Knowledge dari dokumen <b>${esc}</b> tersimpan${extra}`:`✅ Knowledge dari URL tersimpan: ${esc}${extra}`),options:{parse_mode:'HTML'}};\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2500,
+    "y": 840,
+    "wires": [
+      [
+        "9af715746e964aa9"
+      ]
+    ]
+  },
+  {
+    "id": "9af715746e964aa9",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send URL Learn Result",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2760,
+    "y": 840,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e70",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "Learn • HTTP Get File",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1460,
+    "y": 940,
+    "wires": [
+      [
+        "d629a90ad12d4e71"
+      ]
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e71",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Learn • Check File Path",
+    "func": "const r=msg.payload&&msg.payload.result;\nif(!msg.payload||!msg.payload.ok||!r||!r.file_path){\n msg.payload={chatId:msg.chatId,type:'message',content:'Gagal mengambil file dari Telegram.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nconst token=env.get('TELEGRAM_BOT_TOKEN');\nmsg.method='GET';\nmsg.url='https://api.telegram.org/file/bot'+token+'/'+r.file_path;\nreturn [msg,null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1720,
+    "y": 940,
+    "wires": [
+      [
+        "d629a90ad12d4e72"
+      ],
+      [
+        "9af715746e964aa9"
+      ]
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e72",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "Learn • HTTP Download",
+    "method": "use",
+    "ret": "bin",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1980,
+    "y": 940,
+    "wires": [
+      [
+        "d629a90ad12d4e73"
+      ]
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e73",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Learn • Extract Text",
+    "func": "if(!Buffer.isBuffer(msg.payload)||!msg.payload.length){\n msg.payload={chatId:msg.chatId,type:'message',content:'Download file gagal.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nconst kind=msg.learnDocKind||'text';\nlet text='';\ntry{\n if(kind==='pdf'){\n  const parser=new pdfParse.PDFParse({data:msg.payload});\n  const res=await parser.getText();\n  text=String((res&&res.text)||'');\n  try{if(parser.destroy)await parser.destroy();}catch(e){}\n }else{text=msg.payload.toString('utf8');}\n}catch(e){\n msg.payload={chatId:msg.chatId,type:'message',content:'Gagal membaca file: '+e.message,options:{parse_mode:'HTML'}};\n return [null,msg];\n}\ntext=String(text).replace(/^\\s*-- \\d+ of \\d+ --\\s*$/gm,'').replace(/\\u0000/g,'').replace(/[ \\t]+\\n/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim();\nif(!text){\n msg.payload={chatId:msg.chatId,type:'message',content:'File tidak berisi teks yang bisa dibaca.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nmsg.payload=text;\nmsg.sourceType='document';\nmsg.learnUrl=msg.learnDocName||'dokumen';\nreturn [msg,null];",
+    "outputs": 2,
+    "timeout": "30",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [
+      {
+        "var": "pdfParse",
+        "module": "pdf-parse"
+      }
+    ],
+    "x": 2240,
+    "y": 940,
+    "wires": [
+      [
+        "15d30ecc8f5b4ac7"
+      ],
+      [
+        "9af715746e964aa9"
+      ]
+    ]
+  },
+  {
+    "id": "1bf15d97822547f7",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Unknown Command",
+    "func": "msg.payload={chatId:msg.chatId,type:'message',content:'Perintah tidak dikenal. Gunakan <code>/help</code>.',options:{parse_mode:'HTML'}};return msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 1140,
+    "wires": [
+      [
+        "40182dc8eaa242a2"
+      ]
+    ]
+  },
+  {
+    "id": "40182dc8eaa242a2",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Unknown Command",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 1720,
+    "y": 1140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "1d48500967ef4358",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "Environment / Notes",
+    "info": "Required env: PGHOST=postgres; PGPORT=5432; PGDATABASE=ai_integrator; PGUSER=ai_integrator; PGPASSWORD=<password>. AI multi-provider: AI_PROVIDER_ORDER=groq,gemini,openrouter; GROQ_API_KEY=<key>; GROQ_MODEL=openai/gpt-oss-20b; GEMINI_API_KEY=<key>; GEMINI_MODEL=gemini-3.6-flash; OPENROUTER_API_KEY=<key>; OPENROUTER_MODEL=openrouter/free. Optional: AI_MEMORY_BATCH_SIZE=8, AI_MEMORY_BATCH_MESSAGES=30, AI_MEMORY_CONTEXT_CHARS=18000, AI_CHAT_TOP_K=12, AI_MEMORY_MESSAGES=10, AI_TEMPERATURE=0.2. The flow never uses OpenCode Free inference. It tries providers in AI_PROVIDER_ORDER and falls back on HTTP/network/provider failure. This flow assumes V3 schema tables chat_users, chat_messages, ai_memories, ai_conversations, knowledge_chunks exist; it creates ai_memory_state and indexes automatically. Disable Telegram Group Privacy in BotFather if the bot must receive ordinary group messages.",
+    "x": 100,
+    "y": 1760,
+    "wires": []
+  },
+  {
+    "id": "bf36272c3d9f4417",
+    "type": "debug",
+    "z": "ai_integrator_v31",
+    "name": "AI Providers Exhausted • Memory",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "x": 2180,
+    "y": 1570,
+    "wires": []
+  },
+  {
+    "id": "a853210f4cee4be8",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Select AI Provider • Memory",
+    "func": "const order=String(env.get('AI_PROVIDER_ORDER')||'groq,gemini,openrouter').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);\nconst providers={\n groq:{base:env.get('GROQ_BASE_URL')||'https://api.groq.com/openai/v1',key:env.get('GROQ_API_KEY'),model:env.get('GROQ_MODEL')||'openai/gpt-oss-20b'},\n gemini:{base:env.get('GEMINI_BASE_URL')||'https://generativelanguage.googleapis.com/v1beta/openai',key:env.get('GEMINI_API_KEY'),model:env.get('GEMINI_MODEL')||'gemini-3.6-flash'},\n openrouter:{base:env.get('OPENROUTER_BASE_URL')||'https://openrouter.ai/api/v1',key:env.get('OPENROUTER_API_KEY'),model:env.get('OPENROUTER_MODEL')||'openrouter/free'}\n};\nconst available=order.filter(p=>providers[p]?.key);\nif(!available.length){node.error('Tidak ada AI provider yang dikonfigurasi. Isi GROQ_API_KEY, GEMINI_API_KEY, atau OPENROUTER_API_KEY.',msg);return null;}\nif(!Number.isInteger(msg.aiAttempt)) msg.aiAttempt=0;\nif(msg.aiAttempt>=available.length) return null;\nconst name=available[msg.aiAttempt], p=providers[name];\nmsg.aiProvider=name;\nmsg.aiProviderModel=p.model;\nmsg.method='POST';\nmsg.url=String(p.base).replace(/\\/$/,'')+'/chat/completions';\nmsg.headers={'Authorization':`Bearer ${p.key}`,'Content-Type':'application/json'};\nif(name==='openrouter'){\n msg.headers['HTTP-Referer']=env.get('OPENROUTER_HTTP_REFERER')||'https://ai-integrator.local';\n msg.headers['X-Title']=env.get('OPENROUTER_X_TITLE')||'AI Integrator';\n}\nif(msg.requestBody&&typeof msg.requestBody==='object'){msg.payload=JSON.parse(JSON.stringify(msg.requestBody));}\nif(!msg.payload||typeof msg.payload!=='object'||!Array.isArray(msg.payload.messages)){node.error(`Payload AI tidak valid untuk ${name}.`,msg);return null;}\nmsg.payload.model=p.model;\nreturn msg;",
+    "outputs": 1,
+    "x": 1660,
+    "y": 1340,
+    "wires": [
+      [
+        "35f1071547c24eab"
+      ]
+    ]
+  },
+  {
+    "id": "65fcd3ec93ee41c8",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "AI Provider Fallback • Memory",
+    "func": "const status=Number(msg.statusCode||0);\nconst content=String(msg.payload?.choices?.[0]?.message?.content||'').trim();\nconst ok=status>=200 && status<300 && !!content;\nif(ok){msg.aiProviderUsed=msg.aiProvider;return [msg,null,null];}\nconst body=typeof msg.payload==='string'?msg.payload:JSON.stringify(msg.payload);\nmsg.aiLastError=`${msg.aiProvider||'provider'} HTTP ${status||'ERR'}: ${(body||'request failed').slice(0,300)}`;\nmsg.aiErrors=Array.isArray(msg.aiErrors)?msg.aiErrors:[];\nmsg.aiErrors.push(msg.aiLastError);\nconst order=String(env.get('AI_PROVIDER_ORDER')||'groq,gemini,openrouter').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);\nconst available=order.filter(p=>{\n if(p==='groq') return !!env.get('GROQ_API_KEY');\n if(p==='gemini') return !!env.get('GEMINI_API_KEY');\n if(p==='openrouter') return !!env.get('OPENROUTER_API_KEY');\n return false;\n});\nmsg.aiAttempt=(Number.isInteger(msg.aiAttempt)?msg.aiAttempt:0)+1;\nif(msg.aiAttempt<available.length) return [null,msg,null];\nmsg.aiText='Semua AI provider gagal.\\n'+(Array.isArray(msg.aiErrors)&&msg.aiErrors.length?msg.aiErrors.join('\\n'):msg.aiLastError);\nreturn [null,null,msg];",
+    "outputs": 3,
+    "x": 2180,
+    "y": 1440,
+    "wires": [
+      [
+        "ff8ca9578cfa4f7b"
+      ],
+      [
+        "a853210f4cee4be8"
+      ],
+      [
+        "bf36272c3d9f4417"
+      ]
+    ]
+  },
+  {
+    "id": "0e80c5adc56e4516",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "All AI Providers Failed",
+    "func": "msg.statusCode=200;msg.aiText=msg.aiText||'Semua AI provider sedang tidak tersedia.';return msg;",
+    "outputs": 1,
+    "x": 3020,
+    "y": 280,
+    "wires": [
+      [
+        "145ad4811fb34221"
+      ]
+    ]
+  },
+  {
+    "id": "e238db3cd8db4bd8",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Select AI Provider • Ask",
+    "func": "const order=String(env.get('AI_PROVIDER_ORDER')||'groq,gemini,openrouter').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);\nconst providers={\n groq:{base:env.get('GROQ_BASE_URL')||'https://api.groq.com/openai/v1',key:env.get('GROQ_API_KEY'),model:env.get('GROQ_MODEL')||'openai/gpt-oss-20b'},\n gemini:{base:env.get('GEMINI_BASE_URL')||'https://generativelanguage.googleapis.com/v1beta/openai',key:env.get('GEMINI_API_KEY'),model:env.get('GEMINI_MODEL')||'gemini-3.6-flash'},\n openrouter:{base:env.get('OPENROUTER_BASE_URL')||'https://openrouter.ai/api/v1',key:env.get('OPENROUTER_API_KEY'),model:env.get('OPENROUTER_MODEL')||'openrouter/free'}\n};\nconst available=order.filter(p=>providers[p]?.key);\nif(!available.length){node.error('Tidak ada AI provider yang dikonfigurasi. Isi GROQ_API_KEY, GEMINI_API_KEY, atau OPENROUTER_API_KEY.',msg);return null;}\nif(!Number.isInteger(msg.aiAttempt)) msg.aiAttempt=0;\nif(msg.aiAttempt>=available.length) return null;\nconst name=available[msg.aiAttempt], p=providers[name];\nmsg.aiProvider=name;\nmsg.aiProviderModel=p.model;\nmsg.method='POST';\nmsg.url=String(p.base).replace(/\\/$/,'')+'/chat/completions';\nmsg.headers={'Authorization':`Bearer ${p.key}`,'Content-Type':'application/json'};\nif(name==='openrouter'){\n msg.headers['HTTP-Referer']=env.get('OPENROUTER_HTTP_REFERER')||'https://ai-integrator.local';\n msg.headers['X-Title']=env.get('OPENROUTER_X_TITLE')||'AI Integrator';\n}\nif(msg.requestBody&&typeof msg.requestBody==='object'){msg.payload=JSON.parse(JSON.stringify(msg.requestBody));}\nif(!msg.payload||typeof msg.payload!=='object'||!Array.isArray(msg.payload.messages)){node.error(`Payload AI tidak valid untuk ${name}.`,msg);return null;}\nmsg.payload.model=p.model;\nreturn msg;",
+    "outputs": 1,
+    "x": 2500,
+    "y": 40,
+    "wires": [
+      [
+        "8a1fcf82d7ea43d1"
+      ]
+    ]
+  },
+  {
+    "id": "f0b1730438b542c6",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "AI Provider Fallback • Ask",
+    "func": "const status=Number(msg.statusCode||0);\nconst content=String(msg.payload?.choices?.[0]?.message?.content||'').trim();\nconst ok=status>=200 && status<300 && !!content;\nif(ok){msg.aiProviderUsed=msg.aiProvider;return [msg,null,null];}\nconst body=typeof msg.payload==='string'?msg.payload:JSON.stringify(msg.payload);\nmsg.aiLastError=`${msg.aiProvider||'provider'} HTTP ${status||'ERR'}: ${(body||'request failed').slice(0,300)}`;\nmsg.aiErrors=Array.isArray(msg.aiErrors)?msg.aiErrors:[];\nmsg.aiErrors.push(msg.aiLastError);\nconst order=String(env.get('AI_PROVIDER_ORDER')||'groq,gemini,openrouter').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);\nconst available=order.filter(p=>{\n if(p==='groq') return !!env.get('GROQ_API_KEY');\n if(p==='gemini') return !!env.get('GEMINI_API_KEY');\n if(p==='openrouter') return !!env.get('OPENROUTER_API_KEY');\n return false;\n});\nmsg.aiAttempt=(Number.isInteger(msg.aiAttempt)?msg.aiAttempt:0)+1;\nif(msg.aiAttempt<available.length) return [null,msg,null];\nmsg.aiText='Semua AI provider gagal.\\n'+(Array.isArray(msg.aiErrors)&&msg.aiErrors.length?msg.aiErrors.join('\\n'):msg.aiLastError);\nreturn [null,null,msg];",
+    "outputs": 3,
+    "x": 3020,
+    "y": 140,
+    "wires": [
+      [
+        "145ad4811fb34221"
+      ],
+      [
+        "e238db3cd8db4bd8"
+      ],
+      [
+        "0e80c5adc56e4516"
+      ]
+    ]
+  },
+  {
+    "id": "571c4e2a9f000001",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Sticker • Find Image",
+    "func": "const o=msg.originalMessage||{};\nconst src=(o.reply_to_message&&(o.reply_to_message.photo||o.reply_to_message.document))||o.photo||o.document;\nlet fileId=null;\nif(src){\n if(Array.isArray(src)&&src.length){fileId=src[src.length-1].file_id;}\n else if(src.file_id){fileId=src.file_id;}\n}\nif(!fileId){\n msg.payload={chatId:msg.chatId,type:'message',content:'Kirim gambar dengan caption <code>/sticker</code>, atau reply gambar dengan <code>/sticker</code>.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nconst token=env.get('TELEGRAM_BOT_TOKEN');\nif(!token){msg.payload={chatId:msg.chatId,type:'message',content:'TELEGRAM_BOT_TOKEN belum diatur di .env.',options:{parse_mode:'HTML'}};return [null,msg];}\nmsg.stickerFileId=fileId;\nmsg.method='GET';\nmsg.url='https://api.telegram.org/bot'+token+'/getFile?file_id='+encodeURIComponent(fileId);\nreturn [msg,null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1460,
+    "y": 1040,
+    "wires": [
+      [
+        "571c4e2a9f000002"
+      ],
+      [
+        "571c4e2a9f000006"
+      ]
+    ]
+  },
+  {
+    "id": "571c4e2a9f000002",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "Sticker • HTTP Get File",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1720,
+    "y": 1040,
+    "wires": [
+      [
+        "571c4e2a9f000003"
+      ]
+    ]
+  },
+  {
+    "id": "571c4e2a9f000003",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Sticker • Check File Path",
+    "func": "const r=msg.payload&&msg.payload.result;\nif(!msg.payload||!msg.payload.ok||!r||!r.file_path){\n msg.payload={chatId:msg.chatId,type:'message',content:'Gagal mengambil file dari Telegram.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nconst token=env.get('TELEGRAM_BOT_TOKEN');\nmsg.method='GET';\nmsg.url='https://api.telegram.org/file/bot'+token+'/'+r.file_path;\nreturn [msg,null];",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1980,
+    "y": 1040,
+    "wires": [
+      [
+        "571c4e2a9f000004"
+      ],
+      [
+        "571c4e2a9f000006"
+      ]
+    ]
+  },
+  {
+    "id": "571c4e2a9f000004",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "Sticker • HTTP Download",
+    "method": "use",
+    "ret": "bin",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 2240,
+    "y": 1040,
+    "wires": [
+      [
+        "571c4e2a9f000005"
+      ]
+    ]
+  },
+  {
+    "id": "571c4e2a9f000005",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Sticker • Convert & Create Set",
+    "func": "if(!Buffer.isBuffer(msg.payload)||!msg.payload.length){\n msg.payload={chatId:msg.chatId,type:'message',content:'Download gambar gagal.',options:{parse_mode:'HTML'}};\n return msg;\n}\nconst userId=msg.senderId||msg.chatId;\nconst setName='inote_'+userId+'_by_integrator_app_bot';\nconst setTitle='Stiker Integrator '+(msg.senderName||'');\nconst reply=async(text)=>{msg.payload={chatId:msg.chatId,type:'message',content:text,options:{parse_mode:'HTML',link_preview_options:{is_disabled:true}}};return msg;};\ntry{\n const {data,info}=await sharp(msg.payload,{failOn:'none'}).ensureAlpha().raw().toBuffer({resolveWithObject:true});\n const W=info.width,H=info.height,ch=info.channels;\n const bg=new Uint8Array(W*H);\n const q=new Int32Array(W*H);\n let qh=0,qt=0;\n const push=(i)=>{if(!bg[i]){bg[i]=1;q[qt++]=i;}};\n const edge=[];\n for(let x=0;x<W;x++){edge.push(x,(H-1)*W+x);}\n for(let y=0;y<H;y++){edge.push(y*W,y*W+W-1);}\n let er=0,eg=0,eb=0;\n for(let k=0;k<edge.length;k++){const i=edge[k];er+=data[i*ch];eg+=data[i*ch+1];eb+=data[i*ch+2];}\n er/=edge.length;eg/=edge.length;eb/=edge.length;\n let near=0;\n for(let k=0;k<edge.length;k++){const i=edge[k];if(Math.abs(data[i*ch]-er)+Math.abs(data[i*ch+1]-eg)+Math.abs(data[i*ch+2]-eb)<=75)near++;}\n const solid=near/edge.length>=0.85;\n if(solid){\n  for(let k=0;k<edge.length;k++)push(edge[k]);\n  while(qh<qt){\n   const i=q[qh++];\n   const cand=(j)=>{if(bg[j])return;if(Math.abs(data[j*ch]-er)+Math.abs(data[j*ch+1]-eg)+Math.abs(data[j*ch+2]-eb)<=75)push(j);};\n   const iy=(i/W)|0,ix=i-iy*W;\n   if(ix>0)cand(i-1);\n   if(ix<W-1)cand(i+1);\n   if(iy>0)cand(i-W);\n   if(iy<H-1)cand(i+W);\n  }\n  for(let i=0;i<W*H;i++)if(bg[i])data[i*ch+3]=0;\n  for(let i=0;i<W*H;i++){\n   if(data[i*ch+3]===0)continue;\n   const x=i%W,y=(i/W)|0;\n   let n=0,min=1e9;\n   const ed=(j)=>{n++;const d=Math.abs(data[i*ch]-data[j*ch])+Math.abs(data[i*ch+1]-data[j*ch+1])+Math.abs(data[i*ch+2]-data[j*ch+2]);if(d<min)min=d;};\n   if(x>0&&bg[i-1])ed(i-1);\n   if(x<W-1&&bg[i+1])ed(i+1);\n   if(y>0&&bg[i-W])ed(i-W);\n   if(y<H-1&&bg[i+W])ed(i+W);\n   if(n&&min<=120)data[i*ch+3]=128;\n  }\n }\n let img=await sharp(data,{raw:{width:info.width,height:info.height,channels:4}}).resize(512,512,{fit:'contain',background:{r:0,g:0,b:0,alpha:0}}).png({compressionLevel:9,adaptiveFiltering:true}).toBuffer();\n let fmt='png';\n if(img.length>500*1024){\n  fmt='webp';\n  img=await sharp(img).webp({quality:80,alphaQuality:90}).toBuffer();\n  if(img.length>500*1024)img=await sharp(img).webp({quality:60,alphaQuality:80}).toBuffer();\n }\n const up=await stickerApi.uploadStickerFile(userId,img,fmt);\n if(!up.ok)return reply('Gagal upload file stiker: '+(up.description||'unknown'));\n const one=JSON.stringify({sticker:up.result,format:'static',emoji_list:['✨']});\n const stickers='['+one+']';\n let add=await stickerApi.addStickerToSet(userId,setName,one);\n if(!add.ok){\n  const cre=await stickerApi.createNewStickerSet(userId,setName,setTitle,stickers);\n  if(!cre.ok&&!/already|exist/i.test(cre.description||''))return reply('Gagal membuat set stiker: '+(cre.description||'unknown'));\n  if(cre.ok){\n   return reply('✅ Stiker pertama dibuat di set baru:\\n<a href=\"https://t.me/addstickers/'+setName+'\">'+setTitle+'</a>\\n\\nBuka link untuk memasang set stiker.');\n  }\n  add=await stickerApi.addStickerToSet(userId,setName,one);\n  if(!add.ok)return reply('Gagal menambahkan stiker: '+(add.description||'unknown'));\n }\n return reply('✅ Stiker ditambahkan ke set:\\n<a href=\"https://t.me/addstickers/'+setName+'\">'+setTitle+'</a>\\n\\nBuka link untuk memasang set stiker.');\n}catch(e){\n return reply('Terjadi kesalahan: '+e.message);\n}",
+    "outputs": 1,
+    "timeout": "30",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [
+      {
+        "var": "sharp",
+        "module": "sharp"
+      },
+      {
+        "var": "stickerApi",
+        "module": "sticker-helper"
+      }
+    ],
+    "x": 2500,
+    "y": 1040,
+    "wires": [
+      [
+        "571c4e2a9f000006"
+      ]
+    ]
+  },
+  {
+    "id": "571c4e2a9f000006",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send Sticker Result",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 2760,
+    "y": 1150,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "d629a90ad12d4e90",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "① Masuk & Routing Pesan",
+    "info": "",
+    "x": 100,
+    "y": 90
+  },
+  {
+    "id": "d629a90ad12d4e91",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "② AI Ask — Jawaban",
+    "info": "",
+    "x": 1460,
+    "y": 90
+  },
+  {
+    "id": "d629a90ad12d4e92",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "③ Handler Perintah",
+    "info": "",
+    "x": 1460,
+    "y": 190
+  },
+  {
+    "id": "d629a90ad12d4e93",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "④ /learn — URL & Dokumen",
+    "info": "",
+    "x": 1460,
+    "y": 790
+  },
+  {
+    "id": "d629a90ad12d4e94",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "⑤ /sticker",
+    "info": "",
+    "x": 1460,
+    "y": 990
+  },
+  {
+    "id": "d629a90ad12d4e95",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "⑥ Perintah Lain",
+    "info": "",
+    "x": 1460,
+    "y": 1090
+  },
+  {
+    "id": "d629a90ad12d4e96",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "⑦ Memori Otomatis (Batch 5 Menit)",
+    "info": "",
+    "x": 100,
+    "y": 1190
+  },
+  {
+    "id": "d629a90ad12d4e97",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "⑧ Inisialisasi Database",
+    "info": "",
+    "x": 100,
+    "y": 1590
+  }
+]

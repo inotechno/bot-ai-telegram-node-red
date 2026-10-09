@@ -1,0 +1,6 @@
+{
+    "name": "sticker-helper",
+    "version": "1.0.0",
+    "description": "Telegram Bot API sticker helpers for AI Integrator",
+    "main": "index.js"
+}

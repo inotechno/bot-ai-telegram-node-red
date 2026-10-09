@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-integrator-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-ai_integrator}
+      POSTGRES_USER: ${PGUSER:-ai_integrator}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-change-me}
+    ports:
+      - "${PGPORT_HOST:-5434}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-ai_integrator} -d ${PGDATABASE:-ai_integrator}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  nodered:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-integrator-nodered
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "${NODERED_PORT:-1880}:1880"
+    volumes:
+      - ./node-red/data:/data
+      - ./scripts:/scripts:ro
+
+volumes:
+  postgres_data:
