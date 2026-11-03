@@ -623,7 +623,7 @@
     "type": "function",
     "z": "ai_integrator_v31",
     "name": "Help",
-    "func": "msg.payload={chatId:msg.chatId,type:'message',content:\n`<b>🤖 AI Integrator</b>\n\n<b>AI</b>\n/ask pertanyaan\nReply pesan AI untuk melanjutkan\n/clear — hapus konteks percakapan AI\n\n<b>Memory</b>\n/remember teks\nReply pesan + /remember\n/memory [kata kunci]\n/forget ID\n\n<b>Knowledge</b>\n/learn https://contoh.com — simpan halaman web\nKirim file (PDF/TXT) dgn caption /learn — simpan dokumen (juga dgn reply)\n/sources\n\n<b>Stiker</b>\n/sticker — foto → stiker (kirim foto dgn caption /sticker, atau reply foto dgn /sticker)\n\nSemua chat group diarsipkan. Memory AI juga dibuat otomatis dari batch percakapan yang relevan.`,options:{parse_mode:'HTML'}};return msg;",
+    "func": "msg.payload={chatId:msg.chatId,type:'message',content:\n`<b>🤖 AI Integrator</b>\n\n<b>AI</b>\n/ask pertanyaan\nReply pesan AI untuk melanjutkan\n/clear — hapus konteks percakapan AI\n\n<b>Memory</b>\n/remember teks\nReply pesan + /remember\n/memory [kata kunci]\n/forget ID\n\n<b>Knowledge</b>\n/learn https://contoh.com — simpan halaman web\nKirim file (PDF/TXT) dgn caption /learn — simpan dokumen (juga dgn reply)\nKirim foto dgn caption /learn — ekstrak teks dari gambar\n/sources\n\n<b>Stiker</b>\n/sticker — foto → stiker (kirim foto dgn caption /sticker, atau reply foto dgn /sticker)\n\nSemua chat group diarsipkan. Memory AI juga dibuat otomatis dari batch percakapan yang relevan.`,options:{parse_mode:'HTML'}};return msg;",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -1211,7 +1211,7 @@
     "type": "function",
     "z": "ai_integrator_v31",
     "name": "Learn URL",
-    "func": "const o=msg.originalMessage||{};\nconst doc=o.document||(o.reply_to_message&&o.reply_to_message.document);\nconst reply=(t)=>{msg.payload={chatId:msg.chatId,type:'message',content:t,options:{parse_mode:'HTML'}};return [msg,null,null];};\nconst u=String(msg.commandArgs||'').trim();\nif(/^https?:\\/\\//i.test(u)){\n msg.learnUrl=u;msg.sourceType='url';msg.method='GET';msg.url=u;\n msg.headers={'User-Agent':'AI-Integrator-KnowledgeBot/3.1','Accept':'text/html,application/xhtml+xml,text/plain'};\n return [null,msg,null];\n}\nif(/^file:/i.test(u)){\n return reply('Path lokal (<code>file://</code>) tidak bisa dibaca bot. Kirim saja filenya langsung dengan caption <code>/learn</code> (PDF/TXT).');\n}\nif(u){return reply('Gunakan <code>/learn https://contoh.com</code>, atau kirim file (PDF/TXT) dengan caption <code>/learn</code>.');}\nif(doc&&doc.file_id){\n const name=doc.file_name||'dokumen';\n const ext=(name.split('.').pop()||'').toLowerCase();\n const mime=String(doc.mime_type||'');\n const isPdf=mime==='application/pdf'||ext==='pdf';\n const textExt=['txt','md','markdown','csv','json','log','yaml','yml','xml','html','htm','ini','cfg','conf','srt','sql','js','ts','py','java','c','cpp','h','go','rs','css','sh','bat','ps1'];\n const isText=mime.indexOf('text/')===0||textExt.indexOf(ext)>=0;\n if(!isPdf&&!isText){return reply('Format <code>.'+ext+'</code> belum didukung. Kirim PDF atau file teks (txt, md, csv, json, log, dll).');}\n if(Number(doc.file_size||0)>15*1024*1024){return reply('Ukuran file maksimal 15 MB.');}\n const token=env.get('TELEGRAM_BOT_TOKEN');\n if(!token){return reply('TELEGRAM_BOT_TOKEN belum diatur di .env.');}\n msg.learnDocName=name;msg.learnDocKind=isPdf?'pdf':'text';msg.sourceType='document';\n msg.method='GET';msg.url='https://api.telegram.org/bot'+token+'/getFile?file_id='+encodeURIComponent(doc.file_id);\n return [null,null,msg];\n}\nreturn reply('Gunakan <code>/learn https://contoh.com</code>, atau kirim file (PDF/TXT) dengan caption <code>/learn</code>.');",
+    "func": "const o=msg.originalMessage||{};\nconst doc=o.document||(o.reply_to_message&&o.reply_to_message.document);\nconst reply=(t)=>{msg.payload={chatId:msg.chatId,type:'message',content:t,options:{parse_mode:'HTML'}};return [msg,null,null];};\nconst u=String(msg.commandArgs||'').trim();\nif(/^https?:\\/\\//i.test(u)){\n msg.learnUrl=u;msg.sourceType='url';msg.method='GET';msg.url=u;\n msg.headers={'User-Agent':'AI-Integrator-KnowledgeBot/3.1','Accept':'text/html,application/xhtml+xml,text/plain'};\n return [null,msg,null];\n}\nconst photo=o.photo||(o.reply_to_message&&o.reply_to_message.photo);\nif(photo&&photo.length){\n const token=env.get('TELEGRAM_BOT_TOKEN');\n if(!token){return reply('TELEGRAM_BOT_TOKEN belum diatur di .env.');}\n const f=photo[photo.length-1];\n if(!f||!f.file_id){return reply('Foto tidak valid.');}\n if(Number(f.file_size||0)>15*1024*1024){return reply('Ukuran foto maksimal 15 MB.');}\n msg.learnDocName=String(msg.commandArgs||'').trim()||('foto-'+msg.messageId);\n msg.learnDocKind='image';msg.sourceType='image';\n msg.method='GET';\n msg.url='https://api.telegram.org/bot'+token+'/getFile?file_id='+encodeURIComponent(f.file_id);\n return [null,null,msg];\n}\nif(/^file:/i.test(u)){\n return reply('Path lokal (<code>file://</code>) tidak bisa dibaca bot. Kirim saja filenya langsung dengan caption <code>/learn</code> (PDF/TXT).');\n}\nif(u){return reply('Gunakan <code>/learn https://contoh.com</code>, atau kirim file (PDF/TXT) / foto dengan caption <code>/learn</code>.');}\nif(doc&&doc.file_id){\n const name=doc.file_name||'dokumen';\n const ext=(name.split('.').pop()||'').toLowerCase();\n const mime=String(doc.mime_type||'');\n const isPdf=mime==='application/pdf'||ext==='pdf';\n const textExt=['txt','md','markdown','csv','json','log','yaml','yml','xml','html','htm','ini','cfg','conf','srt','sql','js','ts','py','java','c','cpp','h','go','rs','css','sh','bat','ps1'];\n const isText=mime.indexOf('text/')===0||textExt.indexOf(ext)>=0;\n if(!isPdf&&!isText){return reply('Format <code>.'+ext+'</code> belum didukung. Kirim PDF atau file teks (txt, md, csv, json, log, dll).');}\n if(Number(doc.file_size||0)>15*1024*1024){return reply('Ukuran file maksimal 15 MB.');}\n const token=env.get('TELEGRAM_BOT_TOKEN');\n if(!token){return reply('TELEGRAM_BOT_TOKEN belum diatur di .env.');}\n msg.learnDocName=name;msg.learnDocKind=isPdf?'pdf':'text';msg.sourceType='document';\n msg.method='GET';msg.url='https://api.telegram.org/bot'+token+'/getFile?file_id='+encodeURIComponent(doc.file_id);\n return [null,null,msg];\n}\nreturn reply('Gunakan <code>/learn https://contoh.com</code>, atau kirim file (PDF/TXT) / foto dengan caption <code>/learn</code>.');",
     "outputs": 3,
     "timeout": "",
     "noerr": 0,
@@ -1261,7 +1261,7 @@
     "type": "function",
     "z": "ai_integrator_v31",
     "name": "Prepare URL Chunks",
-    "func": "const raw=String(msg.payload||'').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();\nif(!raw){node.error('Sumber tidak menghasilkan teks',msg);return null;}\nconst size=Math.max(1000,Number(env.get('AI_CHUNK_SIZE')||3600)), overlap=Math.max(0,Number(env.get('AI_CHUNK_OVERLAP')||450));\nlet chunks=[];for(let start=0;start<raw.length;){const end=Math.min(raw.length,start+size);chunks.push(raw.slice(start,end));if(end>=raw.length)break;start=Math.max(start+1,end-overlap);}\nconst st=msg.sourceType==='document'?'document':'url';\nmsg.documentName=msg.learnUrl||msg.learnDocName||'knowledge';\nmsg.sourceType=st;msg.chunkCount=chunks.length;\nmsg.query=`WITH del AS (\n DELETE FROM knowledge_chunks WHERE source_name=$1 AND source_type=$2\n), ins AS (\n INSERT INTO knowledge_chunks(source_name,source_type,page,chunk_index,content)\n SELECT $1,$2,NULL,(o.ord-1)::int,o.val\n FROM unnest($3::text[]) WITH ORDINALITY AS o(val,ord)\n RETURNING id\n) SELECT (SELECT count(*) FROM ins) AS inserted`;\nmsg.params=[msg.documentName,st,chunks];return msg;",
+    "func": "const raw=String(msg.payload||'').replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\\s+/g,' ').trim();\nif(!raw){node.error('Sumber tidak menghasilkan teks',msg);return null;}\nconst size=Math.max(1000,Number(env.get('AI_CHUNK_SIZE')||3600)), overlap=Math.max(0,Number(env.get('AI_CHUNK_OVERLAP')||450));\nlet chunks=[];for(let start=0;start<raw.length;){const end=Math.min(raw.length,start+size);chunks.push(raw.slice(start,end));if(end>=raw.length)break;start=Math.max(start+1,end-overlap);}\nconst st=msg.sourceType==='document'?'document':msg.sourceType==='image'?'image':'url';\nmsg.documentName=msg.learnUrl||msg.learnDocName||'knowledge';\nmsg.sourceType=st;msg.chunkCount=chunks.length;\nmsg.query=`WITH del AS (\n DELETE FROM knowledge_chunks WHERE source_name=$1 AND source_type=$2\n), ins AS (\n INSERT INTO knowledge_chunks(source_name,source_type,page,chunk_index,content)\n SELECT $1,$2,NULL,(o.ord-1)::int,o.val\n FROM unnest($3::text[]) WITH ORDINALITY AS o(val,ord)\n RETURNING id\n) SELECT (SELECT count(*) FROM ins) AS inserted`;\nmsg.params=[msg.documentName,st,chunks];return msg;",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -1299,7 +1299,7 @@
     "type": "function",
     "z": "ai_integrator_v31",
     "name": "URL Learn Result",
-    "func": "const st=msg.sourceType||'url';\nconst esc=String(msg.documentName||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst rows=Array.isArray(msg.payload)?msg.payload:[];\nconst n=Number(rows[0]&&rows[0].inserted)||Number(msg.chunkCount||0);\nconst extra=n?(' ('+n+' bagian)'):'';\nmsg.payload={chatId:msg.chatId,type:'message',content:(st==='document'?`✅ Knowledge dari dokumen <b>${esc}</b> tersimpan${extra}`:`✅ Knowledge dari URL tersimpan: ${esc}${extra}`),options:{parse_mode:'HTML'}};\nreturn msg;",
+    "func": "const st=msg.sourceType||'url';\nconst esc=String(msg.documentName||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst rows=Array.isArray(msg.payload)?msg.payload:[];\nconst n=Number(rows[0]&&rows[0].inserted)||Number(msg.chunkCount||0);\nconst extra=n?(' ('+n+' bagian)'):'';\nmsg.payload={chatId:msg.chatId,type:'message',content:(st==='image'?`✅ Knowledge dari gambar <b>${esc}</b> tersimpan${extra}`:st==='document'?`✅ Knowledge dari dokumen <b>${esc}</b> tersimpan${extra}`:`✅ Knowledge dari URL tersimpan: ${esc}${extra}`),options:{parse_mode:'HTML'}};\nreturn msg;",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -1404,8 +1404,8 @@
     "type": "function",
     "z": "ai_integrator_v31",
     "name": "Learn • Extract Text",
-    "func": "if(!Buffer.isBuffer(msg.payload)||!msg.payload.length){\n msg.payload={chatId:msg.chatId,type:'message',content:'Download file gagal.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nconst kind=msg.learnDocKind||'text';\nlet text='';\ntry{\n if(kind==='pdf'){\n  const parser=new pdfParse.PDFParse({data:msg.payload});\n  const res=await parser.getText();\n  text=String((res&&res.text)||'');\n  try{if(parser.destroy)await parser.destroy();}catch(e){}\n }else{text=msg.payload.toString('utf8');}\n}catch(e){\n msg.payload={chatId:msg.chatId,type:'message',content:'Gagal membaca file: '+e.message,options:{parse_mode:'HTML'}};\n return [null,msg];\n}\ntext=String(text).replace(/^\\s*-- \\d+ of \\d+ --\\s*$/gm,'').replace(/\\u0000/g,'').replace(/[ \\t]+\\n/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim();\nif(!text){\n msg.payload={chatId:msg.chatId,type:'message',content:'File tidak berisi teks yang bisa dibaca.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nmsg.payload=text;\nmsg.sourceType='document';\nmsg.learnUrl=msg.learnDocName||'dokumen';\nreturn [msg,null];",
-    "outputs": 2,
+    "func": "if(!Buffer.isBuffer(msg.payload)||!msg.payload.length){\n msg.payload={chatId:msg.chatId,type:'message',content:'Download file gagal.',options:{parse_mode:'HTML'}};\n return [null,msg,null];\n}\nconst kind=msg.learnDocKind||'text';\nif(kind==='image'){\n const key=env.get('GEMINI_API_KEY');\n const base=env.get('GEMINI_BASE_URL');\n if(!key||!base){msg.payload={chatId:msg.chatId,type:'message',content:'GEMINI_API_KEY / GEMINI_BASE_URL belum diatur di .env.',options:{parse_mode:'HTML'}};return [null,msg,null];}\n if(msg.payload.length>12*1024*1024){msg.payload={chatId:msg.chatId,type:'message',content:'Foto terlalu besar (maks 12 MB).',options:{parse_mode:'HTML'}};return [null,msg,null];}\n msg.method='POST';\n msg.url=String(base).replace(/\\/+$/,'')+'/chat/completions';\n msg.headers={'Content-Type':'application/json','Authorization':'Bearer '+key};\n msg.payload={model:env.get('GEMINI_MODEL')||'gemini-2.0-flash',temperature:0,messages:[{role:'user',content:[\n  {type:'text',text:'Ekstrak SEMUA teks yang terlihat di gambar ini secara lengkap dan persis apa adanya (angka, nama, tanggal, nominal). Jangan tambahkan komentar. Jika tidak ada teks sama sekali, balas tepat: TIDAK ADA TEKS.'},\n  {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+msg.payload.toString('base64')}}\n ]}]};\n return [null,null,msg];\n}\nlet text='';\ntry{\n if(kind==='pdf'){\n  const parser=new pdfParse.PDFParse({data:msg.payload});\n  const res=await parser.getText();\n  text=String((res&&res.text)||'');\n  try{if(parser.destroy)await parser.destroy();}catch(e){}\n }else{text=msg.payload.toString('utf8');}\n}catch(e){\n msg.payload={chatId:msg.chatId,type:'message',content:'Gagal membaca file: '+e.message,options:{parse_mode:'HTML'}};\n return [null,msg,null];\n}\ntext=String(text).replace(/^\\s*-- \\d+ of \\d+ --\\s*$/gm,'').replace(/\\u0000/g,'').replace(/[ \\t]+\\n/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim();\nif(!text){\n msg.payload={chatId:msg.chatId,type:'message',content:'File tidak berisi teks yang bisa dibaca.',options:{parse_mode:'HTML'}};\n return [null,msg,null];\n}\nmsg.payload=text;\nmsg.sourceType='document';\nmsg.learnUrl=msg.learnDocName||'dokumen';\nreturn [msg,null,null];",
+    "outputs": 3,
     "timeout": "30",
     "noerr": 0,
     "initialize": "",
@@ -1424,6 +1424,9 @@
       ],
       [
         "9af715746e964aa9"
+      ],
+      [
+        "5b44e79a54f85908"
       ]
     ]
   },
@@ -1781,5 +1784,51 @@
     "info": "",
     "x": 100,
     "y": 1590
+  },
+  {
+    "id": "5b44e79a54f85908",
+    "type": "http request",
+    "z": "ai_integrator_v31",
+    "name": "Learn • HTTP Vision",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 2500,
+    "y": 940,
+    "wires": [
+      [
+        "ea34961cd2cf1ee9"
+      ]
+    ]
+  },
+  {
+    "id": "ea34961cd2cf1ee9",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "Learn • Parse Vision",
+    "func": "const j=msg.payload||{};\nconst c=j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;\nconst text=String(c||'').trim();\nif(!text){\n const err=(j.error&&j.error.message)||('HTTP '+(msg.statusCode||'?'));\n msg.payload={chatId:msg.chatId,type:'message',content:'Vision gagal membaca gambar: '+String(err).slice(0,300),options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nif(/^TIDAK ADA TEKS/i.test(text)){\n msg.payload={chatId:msg.chatId,type:'message',content:'Foto tidak berisi teks yang bisa dibaca.',options:{parse_mode:'HTML'}};\n return [null,msg];\n}\nmsg.payload=text;\nmsg.sourceType='image';\nmsg.learnUrl=msg.learnDocName||('foto-'+msg.messageId);\nreturn [msg,null];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 2760,
+    "y": 940,
+    "wires": [
+      [
+        "15d30ecc8f5b4ac7"
+      ],
+      [
+        "9af715746e964aa9"
+      ]
+    ]
   }
 ]
