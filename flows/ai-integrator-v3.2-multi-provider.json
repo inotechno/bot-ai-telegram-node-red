@@ -577,12 +577,17 @@
         "vt": "str"
       },
       {
+        "t": "eq",
+        "v": "itops",
+        "vt": "str"
+      },
+      {
         "t": "else"
       }
     ],
     "checkall": "true",
     "repair": false,
-    "outputs": 10,
+    "outputs": 11,
     "x": 1160,
     "y": 540,
     "wires": [
@@ -614,6 +619,9 @@
         "571c4e2a9f000001"
       ],
       [
+        "71a0e5c3f2b94801"
+      ],
+      [
         "1bf15d97822547f7"
       ]
     ]
@@ -623,7 +631,7 @@
     "type": "function",
     "z": "ai_integrator_v31",
     "name": "Help",
-    "func": "msg.payload={chatId:msg.chatId,type:'message',content:\n`<b>🤖 AI Integrator</b>\n\n<b>AI</b>\n/ask pertanyaan\nReply pesan AI untuk melanjutkan\n/clear — hapus konteks percakapan AI\n\n<b>Memory</b>\n/remember teks\nReply pesan + /remember\n/memory [kata kunci]\n/forget ID\n\n<b>Knowledge</b>\n/learn https://contoh.com — simpan halaman web\nKirim file (PDF/TXT) dgn caption /learn — simpan dokumen (juga dgn reply)\nKirim foto dgn caption /learn — ekstrak teks dari gambar\nReply pesan apa pun dgn /learn — simpan isi pesan / URL di dalamnya\n/sources\n\n<b>Stiker</b>\n/sticker — foto → stiker (kirim foto dgn caption /sticker, atau reply foto dgn /sticker)\n\nSemua chat group diarsipkan. Memory AI juga dibuat otomatis dari batch percakapan yang relevan.`,options:{parse_mode:'HTML'}};return msg;",
+    "func": "msg.payload={chatId:msg.chatId,type:'message',content:\n`<b>🤖 AI Integrator</b>\n\n<b>AI</b>\n/ask pertanyaan\nReply pesan AI untuk melanjutkan\n/clear — hapus konteks percakapan AI\n\n<b>Memory</b>\n/remember teks\nReply pesan + /remember\n/memory [kata kunci]\n/forget ID\n\n<b>Knowledge</b>\n/learn https://contoh.com — simpan halaman web\nKirim file (PDF/TXT) dgn caption /learn — simpan dokumen (juga dgn reply)\nKirim foto dgn caption /learn — ekstrak teks dari gambar\nReply pesan apa pun dgn /learn — simpan isi pesan / URL di dalamnya\n/sources\n\n<b>ITOps</b>\n/itops — status & daftar tool MCP\n/itops pertanyaan — jawab pakai data ITOps (project, task, event log)\n\n<b>Stiker</b>\n/sticker — foto → stiker (kirim foto dgn caption /sticker, atau reply foto dgn /sticker)\n\nSemua chat group diarsipkan. Memory AI juga dibuat otomatis dari batch percakapan yang relevan.`,options:{parse_mode:'HTML'}};return msg;",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -1832,6 +1840,52 @@
       [
         "9af715746e964aa9"
       ]
+    ]
+  },
+  {
+    "id": "71a0e5c3f2b94803",
+    "type": "comment",
+    "z": "ai_integrator_v31",
+    "name": "⑦ /itops — MCP ITOps",
+    "info": "",
+    "x": 1460,
+    "y": 1190,
+    "wires": []
+  },
+  {
+    "id": "71a0e5c3f2b94801",
+    "type": "function",
+    "z": "ai_integrator_v31",
+    "name": "ITOps • Handler",
+    "func": "// /itops — status & tanya-jawab via MCP ITOps (Project Plan & Event Log)\nconst esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst reply = (t) => {\n    msg.payload = { chatId: msg.chatId, type: 'message', content: t, options: { parse_mode: 'HTML' } };\n    return msg;\n};\nconst MAX = 3800;\nconst q = String(msg.commandArgs || '').trim();\n\nif (!q) {\n    // ---- status: server + daftar tool + hak akses ----\n    try {\n        const s = await itops.status();\n        const who = s.whoami || {};\n        const u = who.user || {};\n        const acc = who.access || {};\n        const lines = s.tools.map((t, i) => (i + 1) + '. <code>' + esc(t.name) + '</code> — ' + esc(String(t.description || '').split('\\n')[0].slice(0, 90)));\n        let txt = '<b>🔌 ITOps MCP</b>\\n';\n        txt += 'Server: <b>' + esc((s.server && (s.server.title || s.server.name)) || 'itops') + '</b> v' + esc((s.server && s.server.version) || '?') + '\\n';\n        txt += 'Terhubung sebagai: <b>' + esc(u.name || u.username || '?') + '</b> (' + esc((who.connected_via || '').replace('Token pribadi: ', '')) + ')\\n';\n        txt += 'Scope: ' + esc((who.scopes || []).join(', ') || '-') + '\\n';\n        txt += 'Akses: project ' + (acc.project_plan ? '✓' : '✗') + ' (' + esc(String(acc.visible_project_count || 0)) + ' terlihat), event log ' + (acc.event_logs ? '✓' : '✗') + ', buat task ' + (acc.create_tasks ? '✓' : '✗') + '\\n\\n';\n        txt += '<b>Tool (' + s.tools.length + '):</b>\\n' + lines.join('\\n');\n        txt += '\\n\\nTanya: <code>/itops proyek apa saja yang berjalan?</code>';\n        return reply(txt.slice(0, MAX));\n    } catch (e) {\n        return reply('❌ Gagal terhubung ke ITOps MCP: <code>' + esc(e.message) + '</code>');\n    }\n}\n\n// ---- tanya-jawab: agentic loop dengan tool ITOps ----\ntry {\n    const ans = await itops.ask(msg.chatId, q);\n    return reply(esc(ans).slice(0, MAX) || '(kosong)');\n} catch (e) {\n    return reply('❌ Gagal menjawab dari ITOps: <code>' + esc(e.message) + '</code>');\n}",
+    "libs": [
+      {
+        "var": "itops",
+        "module": "itops-mcp"
+      }
+    ],
+    "noerr": 0,
+    "outputs": 1,
+    "x": 1460,
+    "y": 1240,
+    "wires": [
+      [
+        "71a0e5c3f2b94802"
+      ]
+    ]
+  },
+  {
+    "id": "71a0e5c3f2b94802",
+    "type": "telegram sender",
+    "z": "ai_integrator_v31",
+    "name": "Send ITOps Result",
+    "bot": "4c98e6bb25a2479e",
+    "haserroroutput": false,
+    "outputs": 1,
+    "x": 1720,
+    "y": 1240,
+    "wires": [
+      []
     ]
   }
 ]

@@ -1,0 +1,8 @@
+{
+    "name": "itops-mcp",
+    "version": "1.0.0",
+    "description": "Klien MCP untuk portal ITOps (Project Plan & Event Log) dengan agentic tool-calling",
+    "main": "index.js",
+    "private": true,
+    "license": "MIT"
+}
